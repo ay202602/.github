@@ -1,0 +1,5 @@
+# リンク切れチェック設定
+max_retries = 3
+timeout = 20
+accept = ["200..=299", "429"]
+exclude_path = [".git"]

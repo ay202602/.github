@@ -1,0 +1,6 @@
+# タイポチェック設定
+[files]
+extend-exclude = [".git"]
+
+[default]
+extend-ignore-re = []
