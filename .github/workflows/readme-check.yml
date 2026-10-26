@@ -36,6 +36,8 @@ jobs:
         with:
           args: --config .lychee.toml --no-progress "**/*.md"
           fail: true
+          # リンクが1件もないMarkdownでも失敗させない
+          failIfEmpty: false
 
   typos:
     name: タイポ
