@@ -1,0 +1,88 @@
+name: Markdown Check (reusable)
+
+# 他のリポジトリから呼び出すための再利用可能ワークフロー。
+# 呼び出し側リポジトリに設定ファイルがあればそれを使い、無ければ既定値を使う。
+#   .markdownlint.json / .lychee.toml / .typos.toml
+
+on:
+  workflow_call:
+    inputs:
+      globs:
+        description: "チェック対象のMarkdownのglob"
+        type: string
+        default: "**/*.md"
+
+permissions:
+  contents: read
+
+jobs:
+  markdownlint:
+    name: Markdownフォーマット
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 設定ファイルが無ければ既定値を用意
+        run: |
+          if [ ! -f .markdownlint.json ]; then
+            cat > "$RUNNER_TEMP/markdownlint.json" <<'JSON'
+          {
+            "default": true,
+            "MD013": false,
+            "MD033": false,
+            "MD041": false
+          }
+          JSON
+            echo "MARKDOWNLINT_CONFIG=$RUNNER_TEMP/markdownlint.json" >> "$GITHUB_ENV"
+          else
+            echo "MARKDOWNLINT_CONFIG=.markdownlint.json" >> "$GITHUB_ENV"
+          fi
+      - uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: ${{ inputs.globs }}
+          config: ${{ env.MARKDOWNLINT_CONFIG }}
+
+  link-check:
+    name: リンク切れ
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 設定ファイルが無ければ既定値を用意
+        run: |
+          if [ ! -f .lychee.toml ]; then
+            cat > "$RUNNER_TEMP/lychee.toml" <<'TOML'
+          max_retries = 3
+          timeout = 20
+          accept = ["200..=299", "429"]
+          exclude_path = [".git"]
+          TOML
+            echo "LYCHEE_CONFIG=$RUNNER_TEMP/lychee.toml" >> "$GITHUB_ENV"
+          else
+            echo "LYCHEE_CONFIG=.lychee.toml" >> "$GITHUB_ENV"
+          fi
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config "${{ env.LYCHEE_CONFIG }}" --no-progress "${{ inputs.globs }}"
+          fail: true
+          # リンクが1件もないMarkdownでも失敗させない
+          failIfEmpty: false
+
+  typos:
+    name: タイポ
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 設定ファイルが無ければ既定値を用意
+        run: |
+          if [ ! -f .typos.toml ]; then
+            cat > "$RUNNER_TEMP/typos.toml" <<'TOML'
+          [files]
+          extend-exclude = [".git"]
+          TOML
+            echo "TYPOS_CONFIG=$RUNNER_TEMP/typos.toml" >> "$GITHUB_ENV"
+          else
+            echo "TYPOS_CONFIG=.typos.toml" >> "$GITHUB_ENV"
+          fi
+      - uses: crate-ci/typos@v1.29.4
+        with:
+          config: ${{ env.TYPOS_CONFIG }}
+          files: .
